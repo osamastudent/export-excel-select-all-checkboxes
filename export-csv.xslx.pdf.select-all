@@ -30,6 +30,24 @@ in conroller
     return $pdf->download('jobs.pdf');
 }
 
+using single record second way
+// Donwload Invoice
+
+    public function downloadInvoice($id)
+    {
+        $download = Invoice::findOrFail($id);
+    
+        $pdf = Pdf::loadView('invoices.download_invoice', compact('download'))
+                  ->setOptions(['defaultFont' => 'sans-serif'])
+                  ->setPaper('a4', 'landscape');
+    
+        return $pdf->download('Invoice_Details_' . $download->invoice_no . '.pdf');
+    }
+
+
+
+
+
 
 // export jobs
 Route::get('/export-all-jobs-xlsx', [ExportController::class, 'exportAllJobsInExcel'])->name('users.export.excel');
