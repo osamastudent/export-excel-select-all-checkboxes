@@ -1,0 +1,192 @@
+in conroller
+  // jobs export in xlsx
+    public function exportAllJobsInExcel(Request $request)
+    {
+        $ids = $request->query('ids'); // Get the selected IDs from the query string
+        $idsArray = explode(',', $ids); // Convert the comma-separated IDs to an array
+        
+        return Excel::download(new AllJobsExports($idsArray), 'jobs.xlsx');
+    }
+
+// jobs export in csv
+    public function exportAllJobsInCsv(Request $request)
+    {
+        $ids = $request->query('ids'); // Get the selected IDs
+        $idsArray = explode(',', $ids); // Convert the selected IDs into an array
+        
+        return Excel::download(new AllJobsExports($idsArray), 'jobs.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+// jobs export in pdf
+    public function exportAllJobsInPdf(Request $request)
+{
+    // Get selected user IDs
+    $ids = explode(',', $request->query('ids'));
+    $jobs = Job::whereIn('id', $ids)->get();
+
+    // Load the view for PDF (create a users-pdf.blade.php file)
+    $pdf = Pdf::loadView('Exports.jobs-pdf', ['jobs' => $jobs]);
+    // Return the generated PDF
+    return $pdf->download('jobs.pdf');
+}
+
+
+// export jobs
+Route::get('/export-all-jobs-xlsx', [ExportController::class, 'exportAllJobsInExcel'])->name('users.export.excel');
+Route::get('/export-all-jobs-csv', [ExportController::class, 'exportAllJobsInCsv'])->name('users.export.csv');
+Route::get('/export-all-jobs-pdf', [ExportController::class, 'exportAllJobsInPdf'])->name('users.export.pdf');
+
+
+<?php
+
+namespace App\Exports;
+
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use App\Models\Job;
+
+class AllJobsExports implements FromCollection , WithHeadings
+{
+    /**
+    * @return \Illuminate\Support\Collection
+    */
+    
+    protected $ids;
+
+    public function __construct($ids)
+    {
+        $this->ids = $ids;
+    }
+
+    /**
+    * @return \Illuminate\Support\Collection
+    */
+    public function collection()
+    {
+        // return Job::whereIn('id', $this->ids)->get();
+        
+    //  return Job::whereIn('id', $this->ids)
+    //         ->select('id', 'job_title', 'job_industry','employment_type','job_location','status') 
+    //         ->get();
+            
+     $jobs= Job::whereIn('id', $this->ids)
+            ->select('id', 'job_title', 'job_industry','employment_type','job_location','status') 
+            ->get();
+$dataWithSN=$jobs->map(function($jobs,$index){
+    
+    return [
+            'SN'=>$index+1,
+            'Title'=>$jobs->job_title,
+            'Job Industry'=>$jobs->job_industry,
+            'Employment Type'=>$jobs->employment_type,
+            'Location'=>$jobs->job_location,
+            'Status'=>$jobs->status,
+        ];
+    
+});
+    
+    return collect($dataWithSN);
+    
+    }
+    
+    
+     /**
+     * Add column headings for the export
+     */
+    public function headings(): array
+    {
+        return [
+            'SN', 
+            'Title', 
+            'Job Industry', 
+            'Employment Type', 
+            'Location', 
+            'Status'
+        ];
+    }
+    
+    
+}
+
+
+
+ // Handle Select All checkbox
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.selectOneByOne');
+    const exportButtons = document.querySelectorAll('#excel, #csv, #pdf');
+    
+
+    // Select All checkbox functionality
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function () {
+            const isChecked = selectAllCheckbox.checked;
+            checkboxes.forEach((checkbox) => {
+                checkbox.checked = isChecked;
+            });
+        });
+    }
+
+    // Individual checkbox change event
+    checkboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', function () {
+            // If any checkbox is unchecked, uncheck Select All
+            if (!this.checked) {
+                selectAllCheckbox.checked = false;
+            }
+
+            // If all checkboxes are checked, check Select All
+            if (Array.from(checkboxes).every((cb) => cb.checked)) {
+                selectAllCheckbox.checked = true;
+            }
+        });
+    });
+    
+    // Export functionality for Excel, CSV, and PDF
+    exportButtons.forEach((button) => {
+        button.addEventListener('click', function () {
+            const selectedIds = Array.from(checkboxes)
+                .filter((checkbox) => checkbox.checked)
+                .map((checkbox) => checkbox.getAttribute('data-id'));
+
+            if (selectedIds.length > 0) {
+                let url;
+                const exportType = this.id; // Get the ID of the clicked button
+
+                // Map button ID to the appropriate URL
+                if (exportType === 'excel') {
+                    url = "/export-all-jobs-xlsx?ids=" + selectedIds.join(',');
+                } else if (exportType === 'csv') {
+                    url = "/export-all-jobs-csv?ids=" + selectedIds.join(',');
+                } else if (exportType === 'pdf') {
+                    url = "/export-all-jobs-pdf?ids=" + selectedIds.join(',');
+                }
+
+                // Redirect to the generated URL
+                window.location.href = url;
+            } else {
+                alert('Please select at least one record.');
+            }
+        });
+    });
+   
+
+
+<th><input type="checkbox" id="selectAll" class="selectAll"></th>
+<td><input type="checkbox" data-id="{{ $invoice->id }}" class="selectOneByOne"></td>
+<!--inner row start for export-->
+                    <div class="row mb-3">
+                    <div class="col">
+                         <div class="dropdown ">
+                                                <button  class="btn btn-sm px-3 btn-dark dropdown-toggle export-btn" type="button" data-toggle="dropdown" aria-expanded="false">
+                                                 Export
+                                                </button>
+                                                <div class="dropdown-menu">
+                                                    <a class="dropdown-item btn py-2 " id="excel">Export to Excel</a>
+                                                    <a class="dropdown-item btn py-2" id="csv">Export to CSV</a>
+                                                    <a class="dropdown-item btn py-2" id="pdf">Export to PDF</a>
+                                                
+                                                    </div>
+                                            </div>
+                    </div>
+                    </div>
+                    <!--inner row end for export -->
